@@ -576,35 +576,40 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const handleDownloadReport = async () => {
     const element = document.getElementById('upu-report-pdf-target');
     if (!element) {
-      alert('Ralat sistem: Sila tunggu seketika atau cuba lagi.');
+      toast.error(lang === 'bm' ? 'Elemen laporan UPU tidak ditemui.' : 'UPU report element was not found.');
       return;
     }
 
     setIsGeneratingReport(true);
-
     let clonedElement: HTMLElement | null = null;
+
     try {
       clonedElement = element.cloneNode(true) as HTMLElement;
       clonedElement.id = 'upu-report-pdf-clone';
-      clonedElement.style.position = 'fixed';
-      clonedElement.style.top = '-9999px';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.width = '794px';
-      clonedElement.style.minHeight = '1123px';
-      clonedElement.style.backgroundColor = '#ffffff';
-      clonedElement.style.zIndex = '2147483647';
-      clonedElement.style.overflow = 'visible';
-      clonedElement.style.padding = '0';
-      clonedElement.style.margin = '0';
-      clonedElement.style.boxSizing = 'border-box';
+      Object.assign(clonedElement.style, {
+        position: 'fixed',
+        top: '-9999px',
+        left: '-9999px',
+        width: '794px',
+        minHeight: '1123px',
+        height: '1123px',
+        backgroundColor: '#ffffff',
+        color: '#000000',
+        zIndex: '2147483647',
+        overflow: 'visible',
+        padding: '0',
+        margin: '0',
+        boxSizing: 'border-box',
+        transform: 'none',
+      });
       document.body.appendChild(clonedElement);
 
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
         width: 794,
@@ -628,25 +633,15 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       const imgWidth = pageWidth;
       const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-
-      heightLeft -= pageHeight;
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
-      }
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
 
       const formattedName = spmData.studentInfo.name?.trim().replace(/\s+/g, '_').toUpperCase() || 'CALON';
       const fileName = `Laporan_Kelayakan_UPU_${spmData.studentInfo.examYear || '2024'}_${formattedName}.pdf`;
       pdf.save(fileName);
+      toast.success(lang === 'bm' ? 'Laporan PDF berjaya dimuat turun.' : 'Report PDF downloaded successfully.');
     } catch (err) {
       console.error('Error generating PDF:', err);
-      alert('Ralat semasa menjana PDF. Sila cuba lagi.');
+      toast.error(lang === 'bm' ? 'Laporan PDF gagal dimuat turun. Sila cuba lagi.' : 'Report PDF download failed. Please try again.');
     } finally {
       if (clonedElement?.parentNode) {
         clonedElement.parentNode.removeChild(clonedElement);

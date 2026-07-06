@@ -281,18 +281,58 @@ export default function App() {
   // PDF Download function
   const handleDownloadPdf = async () => {
     const element = document.getElementById('spm-certificate-pdf-target');
-    if (!element) return;
+    if (!element) {
+      toast.error(lang === 'bm' ? 'Elemen preview sijil tidak ditemui.' : 'Certificate preview element was not found.');
+      return;
+    }
 
     const wasDark = document.documentElement.classList.contains('dark');
+    let clone: HTMLElement | null = null;
+
     try {
       setIsGeneratingPdf(true);
 
-      // Force light mode during generation to avoid unsupported color functions in dark mode
       if (wasDark) {
         document.documentElement.classList.remove('dark');
       }
 
-      // Create PDF with exact A4 dimensions: 210mm x 297mm
+      clone = element.cloneNode(true) as HTMLElement;
+      clone.id = 'spm-certificate-pdf-clone';
+      Object.assign(clone.style, {
+        position: 'fixed',
+        top: '-9999px',
+        left: '-9999px',
+        width: '794px',
+        minHeight: '1123px',
+        height: '1123px',
+        backgroundColor: '#ffffff',
+        color: '#000000',
+        zIndex: '2147483647',
+        overflow: 'visible',
+        padding: '0',
+        margin: '0',
+        boxSizing: 'border-box',
+        transform: 'none',
+      });
+      document.body.appendChild(clone);
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -300,33 +340,27 @@ export default function App() {
         compress: true,
       });
 
-      // Capture canvas with 3x scale for crystal-clear vector text and SVGs
-      const canvas = await html2canvas(element, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        logging: false,
-      });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
-      const imgData = canvas.toDataURL('image/png', 0.95);
-      
-      // Add image to full size A4 page (210 x 297)
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
-      
-      // Clean up filename
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+
       const formattedName = data.studentInfo.name
         ? data.studentInfo.name.trim().replace(/\s+/g, '_').toUpperCase()
         : 'CALON';
-      
+
       const fileName = `SPM_${data.studentInfo.examYear || '2021'}_${formattedName}_${data.templateStyle.toUpperCase()}.pdf`;
       pdf.save(fileName);
-
+      toast.success(lang === 'bm' ? 'PDF berjaya dimuat turun.' : 'PDF downloaded successfully.');
     } catch (error) {
       console.error('Error compiling PDF:', error);
-      alert('Terdapat ralat semasa menjana fail PDF. Sila cuba lagi.');
+      toast.error(lang === 'bm' ? 'PDF gagal dimuat turun. Sila cuba lagi.' : 'PDF download failed. Please try again.');
     } finally {
-      // Restore dark mode
+      if (clone?.parentNode) {
+        clone.parentNode.removeChild(clone);
+      }
       if (wasDark) {
         document.documentElement.classList.add('dark');
       }
