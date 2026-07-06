@@ -199,8 +199,8 @@ export default function SpmForm({ data, onChange, lang = 'bm' }: SpmFormProps) {
                 key={key}
                 type="button"
                 id={`preset-btn-${key}`}
-                onClick={() => handleLoadPreset(presetKey => key)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-250 cursor-pointer ${
+                onClick={() => handleLoadPreset(key)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ease-out cursor-pointer hover:-translate-y-0.5 active:scale-[0.98] ${
                   selectedPreset === key
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/80'

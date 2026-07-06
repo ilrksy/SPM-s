@@ -53,21 +53,21 @@ export default function SpmPreview({ data }: SpmPreviewProps) {
     <motion.div 
       initial={{ opacity: 0, scale: 0.985 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="w-full flex justify-center bg-slate-200 dark:bg-slate-900/60 p-2 md:p-6 rounded-2xl border border-slate-300/40 dark:border-slate-800/40 overflow-hidden shadow-inner"
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full overflow-x-auto bg-slate-200 dark:bg-slate-900/60 p-2 md:p-6 rounded-2xl border border-slate-300/40 dark:border-slate-800/40 shadow-inner"
     >
-      {/* Container simulating A4 paper: Width 794px, Height 1123px (standard A4 at 96 DPI) */}
-      <motion.div 
-        id="spm-certificate-pdf-target"
-        className="relative bg-white w-[794px] h-[1123px] min-w-[794px] min-h-[1123px] max-w-[794px] max-h-[1123px] shadow-2xl p-12 flex flex-col justify-between overflow-hidden select-none"
-        animate={{
-          backgroundColor: templateStyle === 'sijil' ? '#E3EFE6' : '#ffffff',
-        }}
-        transition={{ duration: 0.4, ease: 'easeInOut' }}
-        style={{
-          boxSizing: 'border-box'
-        }}
-      >
+      <div className="mx-auto w-full max-w-[794px] min-w-0">
+        <motion.div 
+          id="spm-certificate-pdf-target"
+          className="relative mx-auto aspect-[794/1123] w-full max-w-[794px] bg-white shadow-2xl p-3 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-between overflow-hidden select-none"
+          animate={{
+            backgroundColor: templateStyle === 'sijil' ? '#E3EFE6' : '#ffffff',
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          style={{
+            boxSizing: 'border-box'
+          }}
+        >
         <style>{`
           #spm-certificate-pdf-target, #spm-certificate-pdf-target * {
             color: black !important;
@@ -611,7 +611,8 @@ export default function SpmPreview({ data }: SpmPreviewProps) {
           </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
