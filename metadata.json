@@ -1,0 +1,6 @@
+{
+  "name": "Penjana Sijil dan Slip SPM",
+  "description": "Aplikasi mesra pengguna untuk menjana, menyesuaikan, dan memuat turun Slip Keputusan dan Sijil Peperiksaan SPM dalam format PDF dengan pratonton masa nyata.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
