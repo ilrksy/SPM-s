@@ -7,6 +7,20 @@ import { jsPDF } from 'jspdf';
 import { SpmData, Subject } from '../types';
 import { COMMON_SUBJECTS, GRADES_MAP, GRADES } from '../data/defaultData';
 import { PrintableReport } from './PrintableReport';
+
+const triggerDownload = (blob: Blob, fileName: string) => {
+  if (typeof window === 'undefined') return;
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+};
+
 import { 
   Award, 
   GraduationCap, 
@@ -587,23 +601,37 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
     let clonedElement: HTMLElement | null = null;
 
     try {
-      clonedElement = sourceElement.cloneNode(true) as HTMLElement;
+      clonedElement = document.createElement('div');
       clonedElement.id = 'upu-report-pdf-clone';
-      Object.assign(clonedElement.style, {
-        position: 'fixed',
-        top: '-9999px',
-        left: '-9999px',
-        width: '794px',
-        minHeight: '1123px',
-        height: '1123px',
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        zIndex: '2147483647',
-        overflow: 'visible',
-        padding: '0',
-        margin: '0',
-        boxSizing: 'border-box',
-        transform: 'none',
+      clonedElement.style.position = 'fixed';
+      clonedElement.style.top = '-9999px';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.width = '794px';
+      clonedElement.style.minHeight = '1123px';
+      clonedElement.style.height = '1123px';
+      clonedElement.style.backgroundColor = '#ffffff';
+      clonedElement.style.color = '#000000';
+      clonedElement.style.zIndex = '2147483647';
+      clonedElement.style.overflow = 'visible';
+      clonedElement.style.padding = '0';
+      clonedElement.style.margin = '0';
+      clonedElement.style.boxSizing = 'border-box';
+      clonedElement.style.transform = 'none';
+      clonedElement.style.filter = 'none';
+      clonedElement.style.fontFamily = 'Arial, sans-serif';
+      clonedElement.innerHTML = sourceElement.outerHTML;
+      document.body.appendChild(clonedElement);
+
+      const safeReportNodes = clonedElement.querySelectorAll('*');
+      safeReportNodes.forEach(node => {
+        const elementNode = node as HTMLElement;
+        elementNode.style.color = '#000000';
+        elementNode.style.backgroundColor = 'transparent';
+        elementNode.style.borderColor = '#000000';
+        elementNode.style.boxShadow = 'none';
+        elementNode.style.textShadow = 'none';
+        elementNode.style.filter = 'none';
+        elementNode.style.backdropFilter = 'none';
       });
       document.body.appendChild(clonedElement);
 
@@ -639,7 +667,8 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
 
       const formattedName = spmData.studentInfo.name?.trim().replace(/\s+/g, '_').toUpperCase() || 'CALON';
       const fileName = `Laporan_Kelayakan_UPU_${spmData.studentInfo.examYear || '2024'}_${formattedName}.pdf`;
-      pdf.save(fileName);
+      const pdfBlob = pdf.output('blob');
+      triggerDownload(pdfBlob, fileName);
       toast.success(lang === 'bm' ? 'Laporan PDF berjaya dimuat turun.' : 'Report PDF downloaded successfully.');
     } catch (err) {
       console.error('Error generating PDF:', err);
@@ -1607,6 +1636,14 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
                 subjects={activeUpuSubjects} 
                 meritScore={activeMerit} 
                 pathway={pathway} 
+                eligibleCourses={coursesWithStatus
+                  .filter((course) => course.isEligible)
+                  .map((course) => ({
+                    id: course.id,
+                    name: course.name,
+                    universities: course.universities,
+                    minMerit: pathway === 'spm' ? course.minMeritSpm : course.minMeritStpm,
+                  }))}
               />
               <div className="p-4 flex justify-end gap-2 border-t">
                 <button onClick={() => setShowPrintPreview(false)} className="px-4 py-2 bg-slate-200 rounded-lg font-bold">Tutup</button>

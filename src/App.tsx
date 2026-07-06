@@ -29,6 +29,19 @@ const safeSetStorage = (key: string, value: string) => {
   }
 };
 
+const triggerDownload = (blob: Blob, fileName: string) => {
+  if (typeof window === 'undefined') return;
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+};
+
 type SavedProfile = {
   id: string;
   name: string;
@@ -344,23 +357,37 @@ export default function App() {
         document.documentElement.classList.remove('dark');
       }
 
-      clone = element.cloneNode(true) as HTMLElement;
+      clone = document.createElement('div');
       clone.id = 'spm-certificate-pdf-clone';
-      Object.assign(clone.style, {
-        position: 'fixed',
-        top: '-9999px',
-        left: '-9999px',
-        width: '794px',
-        minHeight: '1123px',
-        height: '1123px',
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        zIndex: '2147483647',
-        overflow: 'visible',
-        padding: '0',
-        margin: '0',
-        boxSizing: 'border-box',
-        transform: 'none',
+      clone.style.position = 'fixed';
+      clone.style.top = '-9999px';
+      clone.style.left = '-9999px';
+      clone.style.width = '794px';
+      clone.style.minHeight = '1123px';
+      clone.style.height = '1123px';
+      clone.style.backgroundColor = '#ffffff';
+      clone.style.color = '#000000';
+      clone.style.zIndex = '2147483647';
+      clone.style.overflow = 'visible';
+      clone.style.padding = '0';
+      clone.style.margin = '0';
+      clone.style.boxSizing = 'border-box';
+      clone.style.transform = 'none';
+      clone.style.filter = 'none';
+      clone.style.fontFamily = 'Arial, sans-serif';
+      clone.innerHTML = element.outerHTML;
+      document.body.appendChild(clone);
+
+      const safeNodes = clone.querySelectorAll('*');
+      safeNodes.forEach(node => {
+        const elementNode = node as HTMLElement;
+        elementNode.style.color = '#000000';
+        elementNode.style.backgroundColor = 'transparent';
+        elementNode.style.borderColor = '#000000';
+        elementNode.style.boxShadow = 'none';
+        elementNode.style.textShadow = 'none';
+        elementNode.style.filter = 'none';
+        elementNode.style.backdropFilter = 'none';
       });
       document.body.appendChild(clone);
 
@@ -400,7 +427,8 @@ export default function App() {
         : 'CALON';
 
       const fileName = `SPM_${data.studentInfo.examYear || '2021'}_${formattedName}_${data.templateStyle.toUpperCase()}.pdf`;
-      pdf.save(fileName);
+      const pdfBlob = pdf.output('blob');
+      triggerDownload(pdfBlob, fileName);
       toast.success(lang === 'bm' ? 'PDF berjaya dimuat turun.' : 'PDF downloaded successfully.');
     } catch (error) {
       console.error('Error compiling PDF:', error);
@@ -516,14 +544,13 @@ export default function App() {
       {/* QUICK START WIZARD MODAL */}
       <AnimatePresence>
         {showQuickStart && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             {/* Backdrop overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowQuickStart(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs pointer-events-none"
             />
 
             {/* Modal Box */}
@@ -532,7 +559,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: "spring", duration: 0.4 }}
-              className="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 dark:border-slate-700/80 flex flex-col z-10"
+              className="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 dark:border-slate-700/80 flex flex-col z-10 pointer-events-auto"
             >
               {/* Top accent bar */}
               <div className="h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
@@ -609,7 +636,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        localStorage.setItem('spm-quickstart-seen', 'true');
+                        safeSetStorage('spm-quickstart-seen', 'true');
                         setShowQuickStart(false);
                       }}
                       className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-md animate-pulse"
