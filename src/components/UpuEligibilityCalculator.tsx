@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { SpmData, Subject } from '../types';
 import { COMMON_SUBJECTS, GRADES_MAP, GRADES } from '../data/defaultData';
 import { PrintableReport } from './PrintableReport';
@@ -44,7 +46,6 @@ import {
   Printer,
   FileDown
 } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
 
 interface UpuEligibilityCalculatorProps {
   spmData: SpmData;
@@ -573,28 +574,83 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
 
   const handleDownloadReport = async () => {
+    const element = document.getElementById('upu-report-pdf-target');
+    if (!element) {
+      alert('Ralat sistem: Sila tunggu seketika atau cuba lagi.');
+      return;
+    }
+
     setIsGeneratingReport(true);
+
+    let clonedElement: HTMLElement | null = null;
     try {
-      const element = document.getElementById('upu-report-pdf-target');
-      if (!element) {
-        alert('Ralat sistem: Sila tunggu seketika atau cuba lagi.');
-        setIsGeneratingReport(false);
-        return;
+      clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement.id = 'upu-report-pdf-clone';
+      clonedElement.style.position = 'fixed';
+      clonedElement.style.top = '-9999px';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.width = '794px';
+      clonedElement.style.minHeight = '1123px';
+      clonedElement.style.backgroundColor = '#ffffff';
+      clonedElement.style.zIndex = '2147483647';
+      clonedElement.style.overflow = 'visible';
+      clonedElement.style.padding = '0';
+      clonedElement.style.margin = '0';
+      clonedElement.style.boxSizing = 'border-box';
+      document.body.appendChild(clonedElement);
+
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const canvas = await html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pageHeight;
       }
 
-      const opt = {
-        margin: 0,
-        filename: 'Laporan_Kelayakan_UPU.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: false },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
-
-      await html2pdf().set(opt).from(element).save();
+      const formattedName = spmData.studentInfo.name?.trim().replace(/\s+/g, '_').toUpperCase() || 'CALON';
+      const fileName = `Laporan_Kelayakan_UPU_${spmData.studentInfo.examYear || '2024'}_${formattedName}.pdf`;
+      pdf.save(fileName);
     } catch (err) {
       console.error('Error generating PDF:', err);
       alert('Ralat semasa menjana PDF. Sila cuba lagi.');
     } finally {
+      if (clonedElement?.parentNode) {
+        clonedElement.parentNode.removeChild(clonedElement);
+      }
       setIsGeneratingReport(false);
     }
   };
