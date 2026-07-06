@@ -10,10 +10,39 @@ import { jsPDF } from 'jspdf';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
+const safeGetStorage = (key: string, fallback: string | null = null) => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    return window.localStorage.getItem(key) ?? fallback;
+  } catch (error) {
+    console.warn(`Unable to read ${key}:`, error);
+    return fallback;
+  }
+};
+
+const safeSetStorage = (key: string, value: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Unable to save ${key}:`, error);
+  }
+};
+
+type SavedProfile = {
+  id: string;
+  name: string;
+  timestamp: string;
+  data: SpmData;
+  totalAs: number;
+  averageGrade: string;
+  subjectCount: number;
+};
+
 export default function App() {
   // Load standard Science stream preset or auto-saved state on startup
   const [data, setData] = useState<SpmData>(() => {
-    const autoSaved = localStorage.getItem('spm-auto-saved-data');
+    const autoSaved = safeGetStorage('spm-auto-saved-data');
     if (autoSaved) {
       try {
         const parsed = JSON.parse(autoSaved);
@@ -21,7 +50,7 @@ export default function App() {
           return parsed;
         }
       } catch (e) {
-        console.error("Ralat membaca data draf automatik:", e);
+        console.error('Ralat membaca data draf automatik:', e);
       }
     }
     return JSON.parse(JSON.stringify(PRESETS.pureScience.data));
@@ -31,47 +60,66 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'edit' | 'upu' | 'info'>('edit');
   const [isPrintMode, setIsPrintMode] = useState<boolean>(false);
   const [autoSavedMessage, setAutoSavedMessage] = useState<string | null>(null);
+  const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>(() => {
+    const stored = safeGetStorage('spm-saved-profiles');
+    if (!stored) return [];
+    try {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error('Ralat membaca profil tersimpan:', error);
+      return [];
+    }
+  });
   const [showQuickStart, setShowQuickStart] = useState<boolean>(() => {
-    const seen = localStorage.getItem('spm-quickstart-seen');
+    const seen = safeGetStorage('spm-quickstart-seen');
     return seen !== 'true';
   });
   const [quickStartStep, setQuickStartStep] = useState<number>(0);
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('spm-theme');
+    const saved = safeGetStorage('spm-theme');
     if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false;
   });
 
   // Dual Language State ('bm' = Bahasa Melayu, 'en' = English)
   const [lang, setLang] = useState<'bm' | 'en'>(() => {
-    const saved = localStorage.getItem('spm-lang');
+    const saved = safeGetStorage('spm-lang');
     return saved === 'en' ? 'en' : 'bm';
   });
 
   // Sync language to localStorage
   useEffect(() => {
-    localStorage.setItem('spm-lang', lang);
+    safeSetStorage('spm-lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    safeSetStorage('spm-saved-profiles', JSON.stringify(savedProfiles));
+  }, [savedProfiles]);
 
   // Track theme changes
   useEffect(() => {
-    localStorage.setItem('spm-theme', darkMode ? 'dark' : 'light');
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    safeSetStorage('spm-theme', darkMode ? 'dark' : 'light');
+    if (typeof document !== 'undefined') {
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, [darkMode]);
 
   // Auto-save form state to localStorage every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      localStorage.setItem('spm-auto-saved-data', JSON.stringify(data));
+      safeSetStorage('spm-auto-saved-data', JSON.stringify(data));
       const now = new Date();
       const timeString = now.toLocaleTimeString(lang === 'bm' ? 'ms-MY' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setAutoSavedMessage(lang === 'bm' ? `Keputusan draf disimpan pada jam ${timeString}` : `Draft auto-saved at ${timeString}`);
-      
+
       toast.success(lang === 'bm' ? 'Draf disimpan' : 'Draft saved', {
         position: 'bottom-right',
         duration: 2000,
@@ -84,7 +132,7 @@ export default function App() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [data]);
+  }, [data, lang]);
 
   const quickStartSteps = lang === 'en' ? [
     {
