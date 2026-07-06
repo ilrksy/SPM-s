@@ -574,8 +574,11 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
 
   const handleDownloadReport = async () => {
-    const element = document.getElementById('upu-report-pdf-target');
-    if (!element) {
+    const previewElement = document.getElementById('printable-report');
+    const fallbackElement = document.getElementById('upu-report-pdf-target');
+    const sourceElement = previewElement || fallbackElement;
+
+    if (!sourceElement) {
       toast.error(lang === 'bm' ? 'Elemen laporan UPU tidak ditemui.' : 'UPU report element was not found.');
       return;
     }
@@ -584,7 +587,7 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
     let clonedElement: HTMLElement | null = null;
 
     try {
-      clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement = sourceElement.cloneNode(true) as HTMLElement;
       clonedElement.id = 'upu-report-pdf-clone';
       Object.assign(clonedElement.style, {
         position: 'fixed',
@@ -629,7 +632,6 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pageWidth;
       const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
