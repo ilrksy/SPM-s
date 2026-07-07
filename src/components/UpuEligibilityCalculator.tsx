@@ -588,9 +588,9 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
 
   const handleDownloadReport = async () => {
-    const previewElement = document.getElementById('printable-report');
     const fallbackElement = document.getElementById('upu-report-pdf-target');
-    const sourceElement = previewElement || fallbackElement;
+    const previewElement = document.getElementById('printable-report');
+    const sourceElement = fallbackElement || previewElement;
 
     if (!sourceElement) {
       toast.error(lang === 'bm' ? 'Elemen laporan UPU tidak ditemui.' : 'UPU report element was not found.');
@@ -619,6 +619,7 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       clonedElement.style.transform = 'none';
       clonedElement.style.filter = 'none';
       clonedElement.style.fontFamily = 'Arial, sans-serif';
+      clonedElement.style.display = 'block';
       clonedElement.innerHTML = sourceElement.outerHTML;
       document.body.appendChild(clonedElement);
 
@@ -633,7 +634,6 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
         elementNode.style.filter = 'none';
         elementNode.style.backdropFilter = 'none';
       });
-      document.body.appendChild(clonedElement);
 
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
@@ -2357,11 +2357,11 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
                           {pathway === 'spm' ? course.minMeritSpm.toFixed(1) : course.minMeritStpm.toFixed(1)}%
                         </td>
                         <td className="py-1 px-3 font-mono font-black text-[8.5px] max-w-[200px] truncate" style={{ color: '#1e1b4b' }}>
-                          {course.universities.slice(0, 6).join(', ')}{course.universities.length > 6 ? '...' : ''}
+                          {course.universities.join(', ')}
                         </td>
                       </tr>
                     );
-                  }).filter(Boolean).slice(0, 6)}
+                  }).filter(Boolean)}
                 </tbody>
               </table>
               <p className="text-[8px] italic mt-1 font-medium" style={{ color: '#94a3b8' }}>
