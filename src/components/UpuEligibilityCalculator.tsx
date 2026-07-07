@@ -620,21 +620,33 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       clonedElement.style.filter = 'none';
       clonedElement.style.fontFamily = 'Arial, sans-serif';
       clonedElement.style.display = 'block';
-      clonedElement.innerHTML = sourceElement.outerHTML;
+
+      const reportContent = sourceElement.cloneNode(true) as HTMLElement;
+      reportContent.id = 'upu-report-pdf-content';
+      reportContent.style.width = '794px';
+      reportContent.style.maxWidth = '794px';
+      reportContent.style.minHeight = '1123px';
+      reportContent.style.height = 'auto';
+      reportContent.style.display = 'block';
+      reportContent.style.backgroundColor = '#ffffff';
+      reportContent.style.color = '#0f172a';
+      reportContent.style.boxSizing = 'border-box';
+      reportContent.style.overflow = 'visible';
+      reportContent.style.padding = '0';
+      reportContent.style.margin = '0';
+      clonedElement.appendChild(reportContent);
       document.body.appendChild(clonedElement);
 
       const safeReportNodes = clonedElement.querySelectorAll('*');
       safeReportNodes.forEach(node => {
         const elementNode = node as HTMLElement;
-        elementNode.style.color = '#000000';
-        elementNode.style.backgroundColor = 'transparent';
-        elementNode.style.borderColor = '#000000';
-        elementNode.style.boxShadow = 'none';
-        elementNode.style.textShadow = 'none';
-        elementNode.style.filter = 'none';
-        elementNode.style.backdropFilter = 'none';
+        elementNode.style.maxWidth = '100%';
+        elementNode.style.overflow = 'visible';
       });
 
+      if (typeof document !== 'undefined' && 'fonts' in document && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const canvas = await html2canvas(clonedElement, {
