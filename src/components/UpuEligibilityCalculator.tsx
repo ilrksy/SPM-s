@@ -590,7 +590,8 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const handleDownloadReport = async () => {
     const fallbackElement = document.getElementById('upu-report-pdf-target');
     const previewElement = document.getElementById('printable-report');
-    const sourceElement = fallbackElement || previewElement;
+    // Prefer the on-screen preview when available (matches local tested flow)
+    const sourceElement = previewElement || fallbackElement;
 
     if (!sourceElement) {
       toast.error(lang === 'bm' ? 'Elemen laporan UPU tidak ditemui.' : 'UPU report element was not found.');
