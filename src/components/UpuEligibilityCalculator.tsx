@@ -2,11 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { SpmData, Subject } from '../types';
 import { COMMON_SUBJECTS, GRADES_MAP, GRADES } from '../data/defaultData';
 import { PrintableReport } from './PrintableReport';
+import { buildUpuReportPdfSections } from '../utils/upuReportPdf';
 
 const triggerDownload = (blob: Blob, fileName: string) => {
   if (typeof window === 'undefined') return;
@@ -588,83 +588,29 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
 
   const handleDownloadReport = async () => {
-    const fallbackElement = document.getElementById('upu-report-pdf-target');
-    const previewElement = document.getElementById('printable-report');
-    // Prefer the on-screen preview when available (matches local tested flow)
-    const sourceElement = previewElement || fallbackElement;
-
-    if (!sourceElement) {
-      toast.error(lang === 'bm' ? 'Elemen laporan UPU tidak ditemui.' : 'UPU report element was not found.');
-      return;
-    }
-
     setIsGeneratingReport(true);
-    let clonedElement: HTMLElement | null = null;
 
     try {
-      clonedElement = document.createElement('div');
-      clonedElement.id = 'upu-report-pdf-clone';
-      clonedElement.style.position = 'fixed';
-      clonedElement.style.top = '-9999px';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.width = '794px';
-      clonedElement.style.minHeight = '1123px';
-      clonedElement.style.height = '1123px';
-      clonedElement.style.backgroundColor = '#ffffff';
-      clonedElement.style.color = '#000000';
-      clonedElement.style.zIndex = '2147483647';
-      clonedElement.style.overflow = 'visible';
-      clonedElement.style.padding = '0';
-      clonedElement.style.margin = '0';
-      clonedElement.style.boxSizing = 'border-box';
-      clonedElement.style.transform = 'none';
-      clonedElement.style.filter = 'none';
-      clonedElement.style.fontFamily = 'Arial, sans-serif';
-      clonedElement.style.display = 'block';
-
-      const reportContent = sourceElement.cloneNode(true) as HTMLElement;
-      reportContent.id = 'upu-report-pdf-content';
-      reportContent.style.width = '794px';
-      reportContent.style.maxWidth = '794px';
-      reportContent.style.minHeight = '1123px';
-      reportContent.style.height = 'auto';
-      reportContent.style.display = 'block';
-      reportContent.style.backgroundColor = '#ffffff';
-      reportContent.style.color = '#0f172a';
-      reportContent.style.boxSizing = 'border-box';
-      reportContent.style.overflow = 'visible';
-      reportContent.style.padding = '0';
-      reportContent.style.margin = '0';
-      clonedElement.appendChild(reportContent);
-      document.body.appendChild(clonedElement);
-
-      const safeReportNodes = clonedElement.querySelectorAll('*');
-      safeReportNodes.forEach(node => {
-        const elementNode = node as HTMLElement;
-        elementNode.style.maxWidth = '100%';
-        elementNode.style.overflow = 'visible';
+      const sections = buildUpuReportPdfSections({
+        lang,
+        pathway,
+        meritScore: activeMerit,
+        candidateName: spmData.studentInfo.name || '',
+        icNumber: spmData.studentInfo.icNumber || '',
+        indexNumber: spmData.studentInfo.angkaGiliran || '',
+        schoolName: spmData.studentInfo.schoolName || '',
+        examYear: spmData.studentInfo.examYear || '',
+        serialNumber: spmData.studentInfo.serialNumber || '',
+        subjects: activeUpuSubjects.map(subject => ({ name: subject.name, grade: subject.grade })),
+        eligibleCourses: coursesWithStatus
+          .filter((course) => course.isEligible)
+          .map((course) => ({
+            name: course.name,
+            universities: course.universities,
+            minMerit: pathway === 'spm' ? course.minMeritSpm : course.minMeritStpm,
+          })),
       });
 
-      if (typeof document !== 'undefined' && 'fonts' in document && document.fonts?.ready) {
-        await document.fonts.ready;
-      }
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-      const canvas = await html2canvas(clonedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 794,
-        height: 1123,
-        windowWidth: 794,
-        windowHeight: 1123,
-        scrollX: 0,
-        scrollY: 0,
-      });
-
-      const imgData = canvas.toDataURL('image/png', 1);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -673,10 +619,86 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 10;
+      const marginY = 10;
+      const lineHeight = 3.8;
+      let y = marginY;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+      const addSection = (section: { title: string; lines: string[] }) => {
+        if (y > pageHeight - 24) {
+          pdf.addPage();
+          y = marginY;
+        }
+
+        pdf.setFillColor(6, 78, 59);
+        pdf.roundedRect(marginX, y - 1.1, pageWidth - marginX * 2, 6.2, 1.1, 1.1, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8.2);
+        pdf.text(section.title.toUpperCase(), marginX + 2.3, y + 3.2);
+        y += 8.2;
+
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.4);
+
+        section.lines.forEach((line) => {
+          const wrappedLines = pdf.splitTextToSize(line, pageWidth - marginX * 2 - 2);
+          wrappedLines.forEach((wrappedLine: string) => {
+            if (y > pageHeight - 12) {
+              pdf.addPage();
+              y = marginY;
+            }
+            pdf.text(wrappedLine, marginX + 1.4, y);
+            y += lineHeight;
+          });
+        });
+
+        y += 1.2;
+      };
+
+      pdf.setFillColor(243, 250, 247);
+      pdf.rect(0, 0, pageWidth, 34, 'F');
+      pdf.setDrawColor(16, 185, 129);
+      pdf.setLineWidth(0.6);
+      pdf.line(marginX, 33, pageWidth - marginX, 33);
+
+      pdf.setTextColor(6, 78, 59);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(15.5);
+      pdf.text('Laporan Kelayakan UPU', marginX, 14);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text(lang === 'bm' ? 'Analisis anggaran markah merit untuk semakan kelayakan kursus' : 'Estimated merit analysis for course eligibility review', marginX, 21);
+
+      pdf.setFillColor(16, 185, 129);
+      pdf.roundedRect(pageWidth - 37, 10, 27, 15, 2, 2, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9.2);
+      pdf.text(`${activeMerit.toFixed(2)}%`, pageWidth - 23, 19, { align: 'center' });
+
+      y = 40;
+
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(209, 250, 229);
+      pdf.roundedRect(marginX, y, pageWidth - marginX * 2, 16.5, 2.2, 2.2, 'FD');
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8.2);
+      pdf.text(lang === 'bm' ? 'MAKLUMAT CALON' : 'CANDIDATE PROFILE', marginX + 2.8, y + 4.8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7.2);
+      pdf.text(`${lang === 'bm' ? 'Nama' : 'Name'}: ${spmData.studentInfo.name || '-'}`, marginX + 2.8, y + 9.7);
+      pdf.text(`${lang === 'bm' ? 'Sekolah' : 'School'}: ${spmData.studentInfo.schoolName || '-'}`, marginX + 2.8, y + 13.2);
+      pdf.text(`${lang === 'bm' ? 'Tahun' : 'Year'}: ${spmData.studentInfo.examYear || '-'}`, marginX + 2.8, y + 16.7);
+
+      y += 20.5;
+
+      sections.forEach(addSection);
 
       const formattedName = spmData.studentInfo.name?.trim().replace(/\s+/g, '_').toUpperCase() || 'CALON';
       const fileName = `Laporan_Kelayakan_UPU_${spmData.studentInfo.examYear || '2024'}_${formattedName}.pdf`;
@@ -687,9 +709,6 @@ export default function UpuEligibilityCalculator({ spmData, lang = 'bm' }: UpuEl
       console.error('Error generating PDF:', err);
       toast.error(lang === 'bm' ? 'Laporan PDF gagal dimuat turun. Sila cuba lagi.' : 'Report PDF download failed. Please try again.');
     } finally {
-      if (clonedElement?.parentNode) {
-        clonedElement.parentNode.removeChild(clonedElement);
-      }
       setIsGeneratingReport(false);
     }
   };
